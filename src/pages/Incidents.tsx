@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Incident, Equipment } from '../types';
-import { getIncidents, createIncident } from '../services/incidentService';
+import { getIncidents } from '../services/incidentService';
 import { getEquipments } from '../services/equipmentService';
 
 export const Incidents: React.FC = () => {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [equipments, setEquipments] = useState<Equipment[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   const [title, setTitle] = useState('');
@@ -19,25 +20,27 @@ export const Incidents: React.FC = () => {
         setEquipments(equipmentsData);
         if (equipmentsData.length > 0) setEquipmentId(equipmentsData[0].id);
       })
+      .catch(() => setError('Erreur de chargement des données'))
+      .finally(() => setLoading(false));
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || equipmentId === '') return;
 
-    try {
-      const newIncident = await createIncident({
-        title,
-        severity,
-        status: 'open',
-        equipmentId: Number(equipmentId),
-      });
-      setIncidents([...incidents, newIncident]);
-      setTitle('');
-    } catch {
-      setError('Erreur lors de la création de l\'incident');
-    }
+    const newIncident: Incident = {
+      id: incidents.length + 1,
+      title,
+      severity,
+      status: 'open',
+      equipmentId: Number(equipmentId),
+    };
+
+    setIncidents([...incidents, newIncident]);
+    setTitle('');
   };
+
+  if (loading) return <p>Chargement...</p>;
 
   return (
     <div>

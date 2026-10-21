@@ -9,8 +9,6 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
-
-# Configuration CORS pour le frontend React
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -24,4 +22,4 @@ app.include_router(assets.router)
 
 @app.get("/", tags=["Healthcheck"])
 async def root():
-    return {"status": "ok", "service": "NexusOps API"}
+    return {"status":"ok", "message":"NexusOps API is running"}

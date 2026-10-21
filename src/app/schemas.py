@@ -38,7 +38,6 @@ class TokenData(BaseModel):
     username: Optional[str] = None
     role: Optional[UserRole] = None
 
-# Asset Schemas
 class AssetBase(BaseModel):
     name: str = Field(..., min_length=2, max_length=50)
     site: str
@@ -57,7 +56,6 @@ class AssetUpdate(BaseModel):
 class AssetResponse(AssetBase):
     id: str
 
-# Incident Schemas
 class IncidentBase(BaseModel):
     title: str
     description: str

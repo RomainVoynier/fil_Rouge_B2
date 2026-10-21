@@ -36,13 +36,6 @@
       "severity": "medium",
       "status": "in_progress",
       "equipmentId": 1
-    },
-    {
-      "title": "Erreur 404",
-      "severity": "low",
-      "status": "open",
-      "equipmentId": 3,
-      "id": "cEtuu6Uzm0k"
     }
   ],
   "users": [
