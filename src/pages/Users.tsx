@@ -18,9 +18,8 @@ export const Users: React.FC = () => {
           <tr>
             <th>ID</th>
             <th>Nom</th>
-            <th>Type</th>
-            <th>Site</th>
-            <th>Statut</th>
+            <th>Email</th>
+            <th>Rôle</th>
           </tr>
         </thead>
         <tbody>

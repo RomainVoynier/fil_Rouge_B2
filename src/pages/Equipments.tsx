@@ -4,14 +4,10 @@ import { getEquipments } from '../services/equipmentService';
 
 export const Equipments: React.FC = () => {
   const [equipments, setEquipments] = useState<Equipment[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     getEquipments()
       .then(setEquipments)
-      .catch(() => setError('Erreur lors du chargement des équipements'))
-      .finally(() => setLoading(false));
   }, []);
 
   return (

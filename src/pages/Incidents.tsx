@@ -30,6 +30,7 @@ export const Incidents: React.FC = () => {
               <td>{incident.title}</td>
               <td>{incident.severity}</td>
               <td>{incident.status}</td>
+              <td>{incident.equipmentId}</td>
             </tr>
           ))}
         </tbody>
