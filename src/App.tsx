@@ -8,8 +8,7 @@ export default function App() {
   return (
     <Router>
       <div className="app">
-        {/* Navigation visible en permanence */}
-        <nav style={{ display: "flex", gap: "1rem", padding: "1rem", background: "#f4f4f4" }}>
+        <nav style={{ padding: "1rem", backgroundColor: "#f0f0f0" }}>
           <Link to="/">Tableau de bord</Link>
           <Link to="/equipements">Équipements</Link>
           <Link to="/incidents">Incidents</Link>

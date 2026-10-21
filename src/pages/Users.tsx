@@ -3,15 +3,11 @@ import { User } from '../types';
 import { getUsers } from '../services/userService';
 
 export const Users: React.FC = () => {
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const [users, setUsers] = useState<User[]>([]);;
 
   useEffect(() => {
     getUsers()
       .then(setUsers)
-      .catch(() => setError('Erreur lors du chargement des utilisateurs'))
-      .finally(() => setLoading(false));
   }, []);
 
   return (

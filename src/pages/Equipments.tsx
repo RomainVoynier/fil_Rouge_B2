@@ -14,9 +14,6 @@ export const Equipments: React.FC = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <p>Chargement...</p>;
-  if (error) return <p style={{ color: 'red' }}>{error}</p>;
-
   return (
     <div>
       <h2>Équipements</h2>
