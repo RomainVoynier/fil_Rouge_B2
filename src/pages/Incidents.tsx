@@ -29,7 +29,6 @@ export const Incidents: React.FC = () => {
               <td>{incident.id}</td>
               <td>{incident.title}</td>
               <td>{incident.severity}</td>
-              <td>{incident.site}</td>
               <td>{incident.status}</td>
             </tr>
           ))}
