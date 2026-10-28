@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Incident, Equipment } from '../types';
-import { getIncidents } from '../services/incidentService';
+import { getIncidents, createIncident } from '../services/incidentService';
 import { getEquipments } from '../services/equipmentService';
 
 export const Incidents: React.FC = () => {
@@ -24,20 +24,25 @@ export const Incidents: React.FC = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || equipmentId === '') return;
 
-    const newIncident: Incident = {
-      id: incidents.length + 1,
-      title,
-      severity,
-      status: 'open',
-      equipmentId: Number(equipmentId),
-    };
+    try {
+      // On envoie l'incident à l'API pour qu'il soit sauvegardé dans SQLite
+      const newIncident = await createIncident({
+        title,
+        severity,
+        status: 'open',
+        equipmentId: Number(equipmentId),
+      });
 
-    setIncidents([...incidents, newIncident]);
-    setTitle('');
+      // On met à jour l'affichage avec l'incident renvoyé par l'API (qui a son vrai ID de base de données)
+      setIncidents([...incidents, newIncident]);
+      setTitle('');
+    } catch (err) {
+      setError('Erreur lors de la création de l\'incident');
+    }
   };
 
   if (loading) return <p>Chargement...</p>;
