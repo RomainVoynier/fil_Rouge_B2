@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Equipment } from '../types';
-import { getEquipments, createEquipment, deleteEquipment } from '../services/equipmentService';
-import { EquipmentForm } from '../components/EquipmentForm';
+import { getEquipments, deleteEquipment } from '../services/equipmentService';
 import { EquipmentTable } from '../components/EquipmentTable';
 
 export const Equipments: React.FC = () => {
@@ -15,15 +14,6 @@ export const Equipments: React.FC = () => {
       .catch(() => setError('Erreur de chargement des équipements'))
       .finally(() => setLoading(false));
   }, []);
-
-  const handleCreate = async (newEqData: any) => {
-    try {
-      const newEq = await createEquipment(newEqData);
-      setEquipments([...equipments, newEq]);
-    } catch (err) {
-      setError('Erreur lors de la création');
-    }
-  };
 
   const handleDelete = async (id: number) => {
     try {
@@ -41,7 +31,6 @@ export const Equipments: React.FC = () => {
       <h2>Gestion des Équipements</h2>
       {error && <p style={{ color: 'red' }}>{error}</p>}
       
-      <EquipmentForm onSubmit={handleCreate} />
       <EquipmentTable equipments={equipments} onDelete={handleDelete} />
     </div>
   );
