@@ -1,40 +1,48 @@
 import React, { useEffect, useState } from 'react';
 import { Equipment } from '../types';
-import { getEquipments } from '../services/equipmentService';
+import { getEquipments, createEquipment, deleteEquipment } from '../services/equipmentService';
+import { EquipmentForm } from '../components/EquipmentForm';
+import { EquipmentTable } from '../components/EquipmentTable';
 
 export const Equipments: React.FC = () => {
   const [equipments, setEquipments] = useState<Equipment[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     getEquipments()
       .then(setEquipments)
+      .catch(() => setError('Erreur de chargement des équipements'))
+      .finally(() => setLoading(false));
   }, []);
+
+  const handleCreate = async (newEqData: any) => {
+    try {
+      const newEq = await createEquipment(newEqData);
+      setEquipments([...equipments, newEq]);
+    } catch (err) {
+      setError('Erreur lors de la création');
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteEquipment(id);
+      setEquipments(equipments.filter((eq) => eq.id !== id));
+    } catch (err) {
+      setError('Erreur lors de la suppression');
+    }
+  };
+
+  if (loading) return <p>Chargement...</p>;
 
   return (
     <div>
-      <h2>Équipements</h2>
-      <table border={1} cellPadding={8}>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Nom</th>
-            <th>Type</th>
-            <th>Site</th>
-            <th>Statut</th>
-          </tr>
-        </thead>
-        <tbody>
-          {equipments.map((eq) => (
-            <tr key={eq.id}>
-              <td>{eq.id}</td>
-              <td>{eq.name}</td>
-              <td>{eq.type}</td>
-              <td>{eq.site}</td>
-              <td>{eq.status}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <h2>Gestion des Équipements</h2>
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+      
+      <EquipmentForm onSubmit={handleCreate} />
+      <EquipmentTable equipments={equipments} onDelete={handleDelete} />
     </div>
   );
 };
