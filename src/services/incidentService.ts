@@ -24,3 +24,11 @@ export const createIncident = async (incident: Omit<Incident, 'id'>): Promise<In
   
   return response.json();
 };
+export const deleteIncident = async (id: number): Promise<void> => {
+  const response = await fetch(`${API_URL}/incidents/${id}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    throw new Error('Erreur lors de la suppression de l\'incident');
+  }
+};

@@ -136,3 +136,11 @@ def get_metrics(db: Session = Depends(get_db)):
         "totalIncidents": total_inc,
         "activeIncidents": active_inc
     }
+@app.delete("/incidents/{incident_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_incident(incident_id: int, db: Session = Depends(get_db)):
+    db_incident = db.query(IncidentModel).filter(IncidentModel.id == incident_id).first()
+    if not db_incident:
+        raise HTTPException(status_code=404, detail="Incident non trouvé")
+    db.delete(db_incident)
+    db.commit()
+    return None
