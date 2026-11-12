@@ -1,39 +1,96 @@
 import React, { useEffect, useState } from 'react';
-import { Equipment } from '../types';
-import { getEquipments, deleteEquipment } from '../services/equipmentService';
-import { EquipmentTable } from '../components/EquipmentTable';
+import { createEquipment } from '../services/authService';
 
-export const Equipments: React.FC = () => {
-  const [equipments, setEquipments] = useState<Equipment[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+export const Equipments = () => {
+  const [equipments, setEquipments] = useState<any[]>([]);
+  const [name, setName] = useState('');
+  const [type, setType] = useState('');
+  const [status, setStatus] = useState('active');
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    getEquipments()
-      .then(setEquipments)
-      .catch(() => setError('Erreur de chargement des équipements'))
-      .finally(() => setLoading(false));
-  }, []);
-
-  const handleDelete = async (id: number) => {
+  const fetchEquipments = async () => {
     try {
-      await deleteEquipment(id);
-      setEquipments(equipments.filter((eq) => eq.id !== id));
-    } catch (err) {
-      setError('Erreur lors de la suppression');
+      const response = await fetch('http://localhost:3001/equipments');
+      const data = await response.json();
+      setEquipments(data);
+    } catch (err: any) {
+      setError('Erreur lors du chargement des equipements');
     }
   };
 
-  if (loading) return <p>Chargement...</p>;
+  useEffect(() => {
+    fetchEquipments();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    try {
+      await createEquipment(name, type, status);
+      setName('');
+      setType('');
+      setStatus('active');
+      fetchEquipments();
+    } catch (err: any) {
+      setError(err.message || 'Erreur lors de la creation');
+    }
+  };
 
   return (
-    <div>
-      <h2>Gestion des Équipements</h2>
+    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
+      <h2>Gestion des equipements</h2>
       {error && <p style={{ color: 'red' }}>{error}</p>}
-      
-      <EquipmentTable equipments={equipments} onDelete={handleDelete} />
+      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        <input
+          type="text"
+          placeholder="Nom"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+          style={{ padding: '8px' }}
+        />
+        <input
+          type="text"
+          placeholder="Type"
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+          required
+          style={{ padding: '8px' }}
+        />
+        <select
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+          style={{ padding: '8px' }}
+        >
+          <option value="active">Actif</option>
+          <option value="inactive">Inactif</option>
+        </select>
+        <button type="submit" style={{ padding: '8px 15px', background: '#007bff', color: '#fff', border: 'none', cursor: 'pointer' }}>
+          Ajouter
+        </button>
+      </form>
+
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr style={{ background: '#f2f2f2', textAlign: 'left' }}>
+            <th style={{ padding: '10px', border: '1px solid #ddd' }}>ID</th>
+            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Nom</th>
+            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Type</th>
+            <th style={{ padding: '10px', border: '1px solid #ddd' }}>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          {equipments.map((eq) => (
+            <tr key={eq.id}>
+              <td style={{ padding: '10px', border: '1px solid #ddd' }}>{eq.id}</td>
+              <td style={{ padding: '10px', border: '1px solid #ddd' }}>{eq.name}</td>
+              <td style={{ padding: '10px', border: '1px solid #ddd' }}>{eq.type}</td>
+              <td style={{ padding: '10px', border: '1px solid #ddd' }}>{eq.status}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 };
-
-export default Equipments;
