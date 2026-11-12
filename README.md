@@ -1,75 +1,51 @@
-# React + TypeScript + Vite
+# NexusOps - Système de Supervision et Gestion d'Incidents
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+NexusOps est une application web modulaire de supervision technique permettant de gérer des équipements, de déclarer et suivre des incidents en temps réel, et d'administrer les utilisateurs. Le projet repose sur une architecture moderne séparant un backend robuste (FastAPI + SQLite) et un frontend modulaire (React + TypeScript).
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Stack Technique
 
-## React Compiler
+### Backend (`/backend`)
+* Python / FastAPI : Framework asynchrone pour la création de l'API REST.
+* SQLAlchemy : ORM pour la gestion de la base de données.
+* SQLite : Base de données légère et persistante (`nexusops.db`).
+* Uvicorn : Serveur ASGI pour lancer l'application.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Frontend (`/src`)
+* React avec TypeScript : Pour une interface utilisateur typée et sécurisée.
+* Architecture Modulaire : Découpage rigoureux par entités (Composants `Form` et `Table` séparés, services centralisés).
+* Fetch API : Pour la communication avec le backend via des endpoints centralisés (`API_ENDPOINTS`).
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Structure du Projet
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
-```
-
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
-```
+```text
+fil_Rouge_B2/
+│
+├── backend/
+│   ├── main.py          # Point d'entrée FastAPI (Routes CRUD & Metrics)
+│   ├── models.py        # Modèles SQLAlchemy (Base de données SQLite)
+│   ├── database.py      # Configuration de la connexion SQLite
+│   ├── requirements.txt # Dépendances Python
+│   └── nexusops.db      # Fichiers de persistance SQLite
+│
+└── src/
+    ├── components/      # Composants réutilisables (Formulaires & Tableaux)
+    │   ├── IncidentForm.tsx
+    │   ├── IncidentTable.tsx
+    │   ├── EquipmentTable.tsx
+    │   └── UserTable.tsx
+    ├── pages/           # Pages principales de l'application
+    │   ├── Dashboard.tsx
+    │   ├── Incidents.tsx
+    │   ├── Equipments.tsx
+    │   └── Users.tsx
+    ├── services/        # Services API centralisés
+    │   ├── api.ts       # URLs globales et endpoints
+    │   ├── incidentService.ts
+    │   ├── equipmentService.ts
+    │   └── userService.ts
+    ├── types/           # Définitions des types TypeScript (Interfaces)
+    └── App.tsx          # Routeur principal
