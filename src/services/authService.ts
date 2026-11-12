@@ -25,3 +25,19 @@ export function logoutUser() {
 export function getToken() {
   return localStorage.getItem('token');
 }
+export async function registerUser(name: string, email: string, password: string) {
+  const response = await fetch(`${API_URL}/register`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ name, email, password }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || 'Erreur lors de l inscription');
+  }
+
+  return await response.json();
+}

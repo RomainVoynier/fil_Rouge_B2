@@ -1,47 +1,17 @@
+from datetime import datetime, timedelta
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List
 from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey
-from sqlalchemy.orm import declarative_base, sessionmaker, relationship, Session
+from sqlalchemy.orm import Session
+from jose import JWTError, jwt
+import bcrypt
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./nexusops.db"
+from database import SessionLocal, engine
+import models
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+models.Base.metadata.create_all(bind=engine)
 
-Base = declarative_base()
-
-class EquipmentModel(Base):
-    __tablename__ = "equipments"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True)
-    type = Column(String)
-    site = Column(String)
-    status = Column(String)
-    incidents = relationship("IncidentModel", back_populates="equipment")
-
-class IncidentModel(Base):
-    __tablename__ = "incidents"
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String)
-    severity = Column(String)
-    status = Column(String)
-    equipmentId = Column(Integer, ForeignKey("equipments.id"))
-    equipment = relationship("EquipmentModel", back_populates="incidents")
-
-class UserModel(Base):
-    __tablename__ = "users"
-    id = Column(String, primary_key=True, index=True)
-    name = Column(String)
-    email = Column(String)
-    role = Column(String)
-
-Base.metadata.create_all(bind=engine)
-
-app = FastAPI(title="NexusOps API", version="1.0.0")
+app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
@@ -51,6 +21,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+SECRET_KEY = "votre_cle_secrete_super_seure"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+class LoginData(BaseModel):
+    email: str
+    password: str
+
+class RegisterData(BaseModel):
+    name: str
+    email: str
+    password: str
+    role: str = "operator"
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
 def get_db():
     db = SessionLocal()
     try:
@@ -58,89 +46,115 @@ def get_db():
     finally:
         db.close()
 
-@app.on_event("startup")
-def init_db():
-    db = SessionLocal()
-    if db.query(EquipmentModel.id).count() == 0:
-        db.add_all([
-            EquipmentModel(id=1, name="Serveur Core A", type="Server", site="Paris", status="online"),
-            EquipmentModel(id=2, name="Switch Backbone", type="Network", site="Lyon", status="offline"),
-            EquipmentModel(id=3, name="Firewall Edge", type="Security", site="Marseille", status="online")
-        ])
-        db.add_all([
-            UserModel(id="1", name="Alice Admin", email="alice@nexusops.com", role="ADMIN"),
-            UserModel(id="2", name="Bob Operator", email="bob@nexusops.com", role="OPERATOR")
-        ])
-        db.add_all([
-            IncidentModel(id=1, title="Perte de connectivité", severity="high", status="open", equipmentId=3),
-            IncidentModel(id=2, title="Charge CPU élevée", severity="medium", status="in_progress", equipmentId=1)
-        ])
-        db.commit()
-    db.close()
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
-class Equipment(BaseModel):
-    id: int
-    name: str
-    type: str
-    site: str
-    status: str
-    class Config:
-        from_attributes = True
+def get_password_hash(password: str) -> str:
+    pwd_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(pwd_bytes, salt)
+    return hashed.decode('utf-8')
 
-class IncidentCreate(BaseModel):
-    title: str
-    severity: str
-    status: str
-    equipmentId: int
+def create_access_token(data: dict, expires_delta: timedelta | None = None):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=15))
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-class Incident(IncidentCreate):
-    id: int
-    class Config:
-        from_attributes = True
+@app.post("/login", response_model=Token)
+def login(form_data: LoginData, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.email == form_data.email).first()
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Identifiants incorrects",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email, "role": user.role}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
 
-class User(BaseModel):
-    id: str
-    name: str
-    email: str
-    role: str
-    class Config:
-        from_attributes = True
-
-@app.get("/equipments", response_model=List[Equipment])
-def get_equipments(db: Session = Depends(get_db)):
-    return db.query(EquipmentModel).all()
-
-@app.get("/incidents", response_model=List[Incident])
-def get_incidents(db: Session = Depends(get_db)):
-    return db.query(IncidentModel).all()
-
-@app.post("/incidents", response_model=Incident, status_code=status.HTTP_201_CREATED)
-def create_incident(incident: IncidentCreate, db: Session = Depends(get_db)):
-    db_incident = IncidentModel(**incident.dict())
-    db.add(db_incident)
+@app.post("/register")
+def register(form_data: RegisterData, db: Session = Depends(get_db)):
+    existing_user = db.query(models.User).filter(models.User.email == form_data.email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cet email est deja utilise",
+        )
+    
+    hashed_password = get_password_hash(form_data.password)
+    new_user = models.User(
+        name=form_data.name,
+        email=form_data.email,
+        hashed_password=hashed_password,
+        role=form_data.role,
+    )
+    db.add(new_user)
     db.commit()
-    db.refresh(db_incident)
-    return db_incident
+    db.refresh(new_user)
+    return {"message": "Utilisateur cree avec succes"}
 
-@app.get("/users", response_model=List[User])
+@app.get("/users")
 def get_users(db: Session = Depends(get_db)):
-    return db.query(UserModel).all()
+    return db.query(models.User).all()
+
+@app.delete("/users/{user_id}")
+def delete_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Utilisateur non trouve"
+        )
+    db.delete(user)
+    db.commit()
+    return {"message": "Utilisateur supprime avec succes"}
+
+@app.get("/equipments")
+def get_equipments(db: Session = Depends(get_db)):
+    return db.query(models.Equipment).all()
+
+@app.get("/incidents")
+def get_incidents(db: Session = Depends(get_db)):
+    return db.query(models.Incident).all()
+
+@app.post("/incidents")
+def create_incident(title: str, severity: str, description: str = None, equipment_id: int = None, db: Session = Depends(get_db)):
+    incident = models.Incident(
+        title=title,
+        severity=severity,
+        description=description,
+        equipment_id=equipment_id
+    )
+    db.add(incident)
+    db.commit()
+    db.refresh(incident)
+    return incident
+
+@app.delete("/incidents/{incident_id}")
+def delete_incident(incident_id: int, db: Session = Depends(get_db)):
+    incident = db.query(models.Incident).filter(models.Incident.id == incident_id).first()
+    if not incident:
+        raise HTTPException(status_code=404, detail="Incident non trouve")
+    db.delete(incident)
+    db.commit()
+    return {"message": "Incident supprime"}
 
 @app.get("/metrics")
 def get_metrics(db: Session = Depends(get_db)):
-    total_eq = db.query(EquipmentModel).count()
-    total_inc = db.query(IncidentModel).count()
-    active_inc = db.query(IncidentModel).filter(IncidentModel.status != "resolved").count()
+    total_equipments = db.query(models.Equipment).count()
+    total_incidents = db.query(models.Incident).count()
+    open_incidents = db.query(models.Incident).filter(models.Incident.status == "open").count()
     return {
-        "totalEquipments": total_eq,
-        "totalIncidents": total_inc,
-        "activeIncidents": active_inc
+        "total_equipments": total_equipments,
+        "total_incidents": total_incidents,
+        "open_incidents": open_incidents
     }
-@app.delete("/incidents/{incident_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_incident(incident_id: int, db: Session = Depends(get_db)):
-    db_incident = db.query(IncidentModel).filter(IncidentModel.id == incident_id).first()
-    if not db_incident:
-        raise HTTPException(status_code=404, detail="Incident non trouvé")
-    db.delete(db_incident)
-    db.commit()
-    return None
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="127.0.0.1", port=3001, reload=True)

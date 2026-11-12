@@ -57,7 +57,7 @@ export const Register = () => {
           />
         </div>
         <button type="submit" style={{ padding: '10px', background: '#28a745', color: '#fff', border: 'none', cursor: 'pointer' }}>
-          S'inscrire
+          S inscrire
         </button>
       </form>
     </div>

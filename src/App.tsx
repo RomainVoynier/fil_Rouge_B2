@@ -5,6 +5,7 @@ import { Incidents } from './pages/Incidents';
 import { Users } from './pages/Users';
 import { Dashboard } from './pages/Dashboard';
 import { Login } from './pages/Login';
+import { Register } from './pages/Register';
 
 export const App: React.FC = () => {
   return (
@@ -17,6 +18,7 @@ export const App: React.FC = () => {
         <Link to="/incidents">Incidents</Link>
         <Link to="/users">Utilisateurs</Link>
         <Link to="/login">Connection</Link>
+        <Link to="/register">Inscription</Link>
       </nav>
       <hr />
 
@@ -26,6 +28,7 @@ export const App: React.FC = () => {
         <Route path="/incidents" element={<Incidents />} />
         <Route path="/users" element={<Users />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
       </Routes>
     </div>
   );
