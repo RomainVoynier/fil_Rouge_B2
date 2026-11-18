@@ -1,6 +1,9 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, assets
+from .routers import auth, assets
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from app.database import get_db
 
 app = FastAPI(
     title="NexusOps API Backend",
@@ -23,3 +26,20 @@ app.include_router(assets.router)
 @app.get("/", tags=["Healthcheck"])
 async def root():
     return {"status":"ok", "message":"NexusOps API is running"}
+    router = APIRouter()
+
+@router.get("/test-db")
+def test_database_connection(db: Session = Depends(get_db)):
+    try:
+        # Exécute une requête simple pour tester la connexion
+        result = db.execute(text("SELECT NOW();")).fetchone()
+        return {
+            "status": "success",
+            "message": "Connexion à Supabase réussie !",
+            "server_time": result[0]
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Échec de la connexion : {str(e)}"
+        }
