@@ -1,28 +1,22 @@
 import React, { useEffect, useState } from 'react';
-import { getEquipments } from '../services/equipmentService';
-import { getIncidents } from '../services/incidentService';
-import { getUsers } from '../services/userService';
+import { getMetrics } from '../services/authService';
 
 export const Dashboard: React.FC = () => {
   const [stats, setStats] = useState({
     equipmentsCount: 0,
     openIncidentsCount: 0,
-    usersCount: 0,
+    totalIncidents: 0,
   });
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([getEquipments(), getIncidents(), getUsers()])
-      .then(([equipments, incidents, users]) => {
-        const openIncidents = incidents.filter(
-          (inc) => inc.status === 'open' || inc.status === 'in_progress'
-        );
-
+    getMetrics()
+      .then((data) => {
         setStats({
-          equipmentsCount: equipments.length,
-          openIncidentsCount: openIncidents.length,
-          usersCount: users.length,
+          equipmentsCount: data.total_equipments,
+          openIncidentsCount: data.open_incidents,
+          totalIncidents: data.total_incidents,
         });
       })
       .catch(() => setError('Erreur de chargement des indicateurs'))
@@ -50,8 +44,8 @@ export const Dashboard: React.FC = () => {
         </div>
 
         <div style={{ border: '1px solid #ccc', padding: '15px', borderRadius: '5px', minWidth: '150px' }}>
-          <h3>Utilisateurs</h3>
-          <p style={{ fontSize: '24px', fontWeight: 'bold' }}>{stats.usersCount}</p>
+          <h3>Total Incidents</h3>
+          <p style={{ fontSize: '24px', fontWeight: 'bold' }}>{stats.totalIncidents}</p>
         </div>
       </div>
     </div>

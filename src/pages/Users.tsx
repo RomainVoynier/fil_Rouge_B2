@@ -16,7 +16,7 @@ export const Users = () => {
         setError('Session expiree ou non autorise. Redirection vers la connexion...');
         setTimeout(() => {
           navigate('/login');
-        }, 1000);
+        }, 1500);
       }
     };
 
