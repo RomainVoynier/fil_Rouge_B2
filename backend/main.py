@@ -1,65 +1,61 @@
-from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey
-from sqlalchemy.orm import declarative_base, sessionmaker, Session, relationship
-from passlib.context import CryptContext
-from jose import JWTError, jwt
 from datetime import datetime, timedelta
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
+from sqlalchemy.orm import Session
+from jose import JWTError, jwt
+import bcrypt
 
-SECRET_KEY = "nexusops_secret_key_change_in_production"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+from database import SessionLocal, engine
+import models
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./nexusops.db"
+models.Base.metadata.create_all(bind=engine)
 
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
-
-class User(Base):
-    __tablename__ = "users"
-
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
-    role = Column(String, default="operator")
-
-class Equipment(Base):
-    __tablename__ = "equipments"
-
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    type = Column(String, nullable=False)
-    status = Column(String, default="active")
-
-class Incident(Base):
-    __tablename__ = "incidents"
-
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, nullable=False)
-    severity = Column(String, nullable=False)
-    description = Column(String, nullable=True)
-    status = Column(String, default="open")
-    equipment_id = Column(Integer, ForeignKey("equipments.id"), nullable=True)
-
-Base.metadata.create_all(bind=engine)
-
-app = FastAPI()
+app = FastAPI(
+    title="NexusOps API",
+    description="API de gestion et d'authentification pour NexusOps",
+    version="1.0.0"
+)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+SECRET_KEY = "votre_cle_secrete_super_seure"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
+class LoginData(BaseModel):
+    email: str
+    password: str
+
+class RegisterData(BaseModel):
+    name: str
+    email: str
+    password: str
+    role: str = "operator"
+
+class EquipmentCreate(BaseModel):
+    name: str
+    type: str
+    status: str = "active"
+
+class IncidentCreate(BaseModel):
+    title: str
+    severity: str
+    description: str | None = None
+    equipment_id: int | None = None
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
 
 def get_db():
     db = SessionLocal()
@@ -68,13 +64,16 @@ def get_db():
     finally:
         db.close()
 
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
-def get_password_hash(password):
-    return pwd_context.hash(password)
+def get_password_hash(password: str) -> str:
+    pwd_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(pwd_bytes, salt)
+    return hashed.decode('utf-8')
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=15))
     to_encode.update({"exp": expire})
@@ -83,7 +82,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
+        detail="Impossible de valider les identifiants",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
@@ -93,143 +92,117 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    user = db.query(User).filter(User.email == email).first()
+    user = db.query(models.User).filter(models.User.email == email).first()
     if user is None:
         raise credentials_exception
     return user
 
-class UserCreate(BaseModel):
-    name: str
-    email: str
-    password: str
-    role: Optional[str] = "operator"
+@app.post("/login", response_model=Token, summary="Connexion utilisateur", description="Permet de s'authentifier et de récupérer un token JWT.")
+def login(form_data: LoginData, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.email == form_data.email).first()
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Identifiants incorrects",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email, "role": user.role}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
 
-class UserResponse(BaseModel):
-    id: int
-    name: str
-    email: str
-    role: str
-
-    class Config:
-        from_attributes = True
-
-class EquipmentCreate(BaseModel):
-    name: str
-    type: str
-    status: Optional[str] = "active"
-
-class EquipmentResponse(BaseModel):
-    id: int
-    name: str
-    type: str
-    status: str
-
-    class Config:
-        from_attributes = True
-
-class IncidentCreate(BaseModel):
-    title: str
-    severity: str
-    description: Optional[str] = None
-    status: Optional[str] = "open"
-    equipment_id: Optional[int] = None
-
-class IncidentResponse(BaseModel):
-    id: int
-    title: str
-    severity: str
-    description: Optional[str] = None
-    status: str
-    equipment_id: Optional[int] = None
-
-    class Config:
-        from_attributes = True
-
-@app.post("/register", response_model=UserResponse)
-def register(user: UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(User).filter(User.email == user.email).first()
-    if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    hashed_password = get_password_hash(user.password)
-    new_user = User(name=user.name, email=user.email, hashed_password=hashed_password, role=user.role)
+@app.post("/register", summary="Inscription utilisateur", description="Crée un nouveau compte utilisateur dans le système.")
+def register(form_data: RegisterData, db: Session = Depends(get_db)):
+    existing_user = db.query(models.User).filter(models.User.email == form_data.email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cet email est deja utilise",
+        )
+    
+    hashed_password = get_password_hash(form_data.password)
+    new_user = models.User(
+        name=form_data.name,
+        email=form_data.email,
+        hashed_password=hashed_password,
+        role=form_data.role,
+    )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    return new_user
+    return {"message": "Utilisateur cree avec succes"}
 
-@app.post("/login")
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(status_code=400, detail="Incorrect email or password")
-    access_token = create_access_token(data={"sub": user.email}, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    return {"access_token": access_token, "token_type": "bearer"}
+@app.get("/users", summary="Lister les utilisateurs", description="Récupère la liste de tous les utilisateurs enregistrés (Protégé).")
+def get_users(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    return db.query(models.User).all()
 
-@app.get("/users", response_model=list[UserResponse])
-def get_users(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return db.query(User).all()
-
-@app.delete("/users/{user_id}")
-def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    user = db.query(User).filter(User.id == user_id).first()
+@app.delete("/users/{user_id}", summary="Supprimer un utilisateur", description="Supprime un utilisateur par son ID (Protégé).")
+def delete_user(user_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Utilisateur non trouve"
+        )
     db.delete(user)
     db.commit()
-    return {"message": "User deleted successfully"}
+    return {"message": "Utilisateur supprime avec succes"}
 
-@app.get("/equipments", response_model=list[EquipmentResponse])
+@app.get("/equipments", summary="Lister les équipements", description="Récupère la liste de tous les équipements.")
 def get_equipments(db: Session = Depends(get_db)):
-    return db.query(Equipment).all()
+    return db.query(models.Equipment).all()
 
-@app.post("/equipments", response_model=EquipmentResponse)
-def create_equipment(equipment: EquipmentCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    new_eq = Equipment(name=equipment.name, type=equipment.type, status=equipment.status)
-    db.add(new_eq)
-    db.commit()
-    db.refresh(new_eq)
-    return new_eq
-
-@app.get("/incidents", response_model=list[IncidentResponse])
-def get_incidents(db: Session = Depends(get_db)):
-    return db.query(Incident).all()
-
-@app.post("/incidents", response_model=IncidentResponse)
-def create_incident(incident: IncidentCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    new_inc = Incident(
-        title=incident.title,
-        severity=incident.severity,
-        description=incident.description,
-        status=incident.status,
-        equipment_id=incident.equipment_id
+@app.post("/equipments", summary="Créer un équipement", description="Ajoute un nouvel équipement (Protégé).")
+def create_equipment(form_data: EquipmentCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    equipment = models.Equipment(
+        name=form_data.name,
+        type=form_data.type,
+        status=form_data.status
     )
-    db.add(new_inc)
+    db.add(equipment)
     db.commit()
-    db.refresh(new_inc)
-    return new_inc
+    db.refresh(equipment)
+    return equipment
 
-@app.delete("/incidents/{incident_id}")
-def delete_incident(incident_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    incident = db.query(Incident).filter(Incident.id == incident_id).first()
+@app.get("/incidents", summary="Lister les incidents", description="Récupère la liste de tous les incidents.")
+def get_incidents(db: Session = Depends(get_db)):
+    return db.query(models.Incident).all()
+
+@app.post("/incidents", summary="Créer un incident", description="Enregistre un nouvel incident (Protégé).")
+def create_incident(form_data: IncidentCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    incident = models.Incident(
+        title=form_data.title,
+        severity=form_data.severity,
+        description=form_data.description,
+        equipment_id=form_data.equipment_id
+    )
+    db.add(incident)
+    db.commit()
+    db.refresh(incident)
+    return incident
+
+@app.delete("/incidents/{incident_id}", summary="Supprimer un incident", description="Supprime un incident par son ID (Protégé).")
+def delete_incident(incident_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    incident = db.query(models.Incident).filter(models.Incident.id == incident_id).first()
     if not incident:
-        raise HTTPException(status_code=404, detail="Incident not found")
+        raise HTTPException(status_code=404, detail="Incident non trouve")
     db.delete(incident)
     db.commit()
-    return {"message": "Incident deleted successfully"}
+    return {"message": "Incident supprime"}
 
-@app.get("/metrics")
+@app.get("/metrics", summary="Indicateurs clés", description="Récupère les statistiques globales de la plateforme.")
 def get_metrics(db: Session = Depends(get_db)):
-    try:
-        total_equipments = db.query(Equipment).count()
-        total_incidents = db.query(Incident).count()
-        open_incidents = db.query(Incident).filter(Incident.status == "open").count()
-    except Exception:
-        total_equipments = 0
-        total_incidents = 0
-        open_incidents = 0
-
+    total_equipments = db.query(models.Equipment).count()
+    total_incidents = db.query(models.Incident).count()
+    open_incidents = db.query(models.Incident).filter(models.Incident.status == "open").count()
     return {
         "total_equipments": total_equipments,
         "total_incidents": total_incidents,
         "open_incidents": open_incidents
     }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="127.0.0.1", port=3001, reload=True)

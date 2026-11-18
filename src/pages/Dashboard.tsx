@@ -32,7 +32,7 @@ export const Dashboard: React.FC = () => {
 
       <div style={{ display: 'flex', gap: '20px', marginTop: '20px' }}>
         <div style={{ border: '1px solid #ccc', padding: '15px', borderRadius: '5px', minWidth: '150px' }}>
-          <h3>Équipements</h3>
+          <h3>Equipements</h3>
           <p style={{ fontSize: '24px', fontWeight: 'bold' }}>{stats.equipmentsCount}</p>
         </div>
 

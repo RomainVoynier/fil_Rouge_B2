@@ -13,10 +13,11 @@ export const Login = () => {
     setError('');
 
     try {
+      // Correction ici : on passe un objet unique contenant email et password
       await loginUser({ email, password });
       navigate('/');
     } catch (err: any) {
-      setError(err.message || 'Erreur lors de la connexion');
+      setError(err.message || 'Une erreur est survenue lors de la connexion');
     }
   };
 

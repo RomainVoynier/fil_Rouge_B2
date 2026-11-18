@@ -10,12 +10,10 @@ export const getIncidents = async (): Promise<Incident[]> => {
 };
 
 export const createIncident = async (incident: Omit<Incident, 'id'>): Promise<Incident> => {
-  const token = localStorage.getItem('access_token') || localStorage.getItem('token');
   const response = await fetch(`${API_URL}/incidents`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify(incident),
   });
@@ -26,14 +24,9 @@ export const createIncident = async (incident: Omit<Incident, 'id'>): Promise<In
   
   return response.json();
 };
-
 export const deleteIncident = async (id: number): Promise<void> => {
-  const token = localStorage.getItem('access_token') || localStorage.getItem('token');
   const response = await fetch(`${API_URL}/incidents/${id}`, {
     method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
   });
   if (!response.ok) {
     throw new Error('Erreur lors de la suppression de l\'incident');
